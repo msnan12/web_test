@@ -1,0 +1,71 @@
+body{
+    font-family: arilal;
+    background-color: skyblue;
+}
+
+button{
+    border-radius: 10%;
+    background-color: #2509dd;
+    color: white;
+    font-size: 12px;
+}
+
+#content{
+    position: absolute;
+    top:50%;
+    left:50%;
+    transform: translate(-50%,-50%);
+    text-align: center;
+}
+
+#toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+#color-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.color-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #888;
+  cursor: pointer;
+  transition: border 0.2s, transform 0.1s;
+}
+
+.color-btn.selected {
+  border: 3px solid #000; /* 選択中は太く */
+  transform: scale(1.2);  /* 少し拡大 */
+}
+
+#undoBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: none;
+  background-color: navy;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+#undoBtn:hover {
+  background-color: mediumblue;
+}
+
+#undoBtn:disabled {
+    opacity: 0.5;
+    background-color: gray;
+    cursor: not-allowed;
+}
+

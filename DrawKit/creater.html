@@ -1,0 +1,125 @@
+<html>
+    <head>
+        <meta name="viewport" content="height=device-height,width=device-width,
+        maximum-scale=0.9,user-scalable=0">
+        <meta charset="UTF-8">
+        <title>Data Creator</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div id="content">
+            <h1>Data Creator</h1>
+            <div>
+                <input id="student" type="text"
+                    placeholder="type your name"/>
+                <span id="instructions"></span>
+                <button id="advanceBtn" onclick="start();">START</button>
+            </div>
+            <br>
+            <div id="sketchPadContainer" style="visibility: hidden;"></div>
+            <br>
+            <div id="toolbar" style="visibility: hidden;">
+                <!-- <div id="color-toolbar">
+                    <span>色：</span>
+                    <button class="color-btn" data-color="black" style="background-color: black;"></button>
+                    <button class="color-btn" data-color="red" style="background-color: red;"></button>
+                    <button class="color-btn" data-color="blue" style="background-color: blue;"></button>
+                </div> -->
+                <button id="undoBtn">↩</button>
+            </div>
+
+        </div>
+        <script src="js/sketchPad.js"></script>
+        <script src="js/draw.js"></script>
+        
+        <script>
+            let index=0;
+            const labels=["car","fish","house","tree","bicycle","guitar","pencile"];
+            const data={
+                student:null,
+                session:new Date().getTime(),
+                drawings:{}
+            }
+            const container = document.getElementById("sketchPadContainer");
+            const undoBtn = document.getElementById("undoBtn");
+            const sketchPad = new SketchPad(container,undoBtn);
+
+            const colorButtons = document.querySelectorAll(".color-btn");
+
+            colorButtons.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                // 色をセット
+                sketchPad.currentColor = btn.dataset.color;
+
+                // 全ボタンから selected を外し、クリックしたものに追加
+                colorButtons.forEach((b) => b.classList.remove("selected"));
+                btn.classList.add("selected");
+            });
+            });
+
+            // 初期選択（例：黒）
+            document.querySelector(".color-btn[data-color='black']").classList.add("selected");
+
+
+            function start(){
+                const studentInput = document.getElementById("student");
+                const sketchPadContainer = document.getElementById("sketchPadContainer");
+                const toolbar = document.getElementById("toolbar");
+
+                if (studentInput.value === "") {
+                    alert("Please type your name first!");
+                    return;
+                }
+
+                data.student = studentInput.value;
+                studentInput.style.display = "none";
+                sketchPadContainer.style.visibility = "visible";
+                toolbar.style.visibility = "visible";
+
+                const label=labels[index];
+                instructions.innerHTML="Please draw a "+label;
+                advanceBtn.innerHTML="NEXT";
+                advanceBtn.onclick=next;
+            }
+
+            function next(){
+                if(sketchPad.paths.length==0){
+                    alert("Draw something first!");
+                    return;
+                }
+
+                const label=labels[index];
+                data.drawings[label]=sketchPad.paths;
+                sketchPad.reset();
+                index++;
+                if(index<labels.length){
+                    const nextlabel=labels[index]
+                    instructions.innerHTML="Please draw a "+nextlabel;
+                }else{
+                    sketchPadContainer.style.visibility="hidden";
+                    instructions.innerHTML="Thank you!";
+                    advanceBtn.innerHTML="SAVE";
+                    advanceBtn.onclick=save;
+                }
+            }
+
+            function save(){
+                advanceBtn.style.display='none';
+                instructions.innerHTML="Take your downloaded file and";
+
+                const element=document.createElement('a');
+                element.setAttribute('href',
+                    'data:text/plain;charset=utf-8,'+
+                    encodeURIComponent(JSON.stringify(data))
+                );
+
+                const fileName=data.session+".json";
+                element.setAttribute('download',fileName);
+
+                element.style.display="none";
+                document.body.appendChild(element);
+                element.click();
+                document.body.removeChild(element);
+            }
+        </script>
+</html>
