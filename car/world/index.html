@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="jp">
+<meta charset="UTF-8">
+
+<head>
+    <title>World Editor統合版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <H1>World　Editor　ver0.2</H1>
+    <canvas id="myCanvas"></canvas>
+    <div id="controls">
+        <label for="season-select">季節を選択:</label>
+        <select id="season-select" onchange="changeSeason()">
+            <option value="spring">春</option>
+            <option value="summer">夏</option>
+            <option value="autumn">秋</option>
+            <option value="winter">冬</option>
+        </select><br><br>
+
+        <button title="道路編集" id="graphBtn" onclick="setMode('graph')">✏️</button>
+        <button title="停止線" id="stopBtn" onclick="setMode('stop')">⛔️</button>
+        <button title="一時停止" id="yieldBtn" onclick="setMode('yield')">⚠️</button>
+        <button title="信号" id="crossingBtn" onclick="setMode('crossing')">🚶‍♂️</button>
+        <button title="駐車スペース" id="parkingBtn" onclick="setMode('parking')">🅿️</button>
+        <button title="信号機" id="LightBtn" onclick="setMode('Light')">🚥</button>
+        <button title="車" id="startBtn" onclick="setMode('start')">🚗</button>
+        <button title="目的地" id="targetBtn" onclick="setMode('target')">📍</button>
+        
+        <br><br>
+        <button title="新規" id="new" onclick="dispose()">🆕</button>
+        <button title="保存" id="save" onclick="save()">💾</button>
+        <label for="fileInput" class="file-input-label">📁
+            <input 
+                type="file"
+                id="fileInput"
+                accept=".world"
+                onchange="load(event)"
+            />
+        </label>
+        <!-- <button title="保存" id="save" onclick="openOsmPanel()">🗺️</button> -->
+
+        <!-- <div id="osmPanel" style="display:none;">
+            <textarea id="osmDataContainer" rows="10" cols="50"
+            placeholder="Paste OSM data here"></textarea>
+            <div>
+                <button onclick="parseOsmData()">✔️</button>
+                <button onclick="closeOsmPanel()">❌</button>
+            </div>
+        </div> -->
+    </div>
+
+    <script src="js/test.js"></script>
+    <script src="js/world.js"></script>
+    <script src="js/editors/graphEditor.js"></script>
+    <script src="js/editors/markingEditor.js"></script>
+    <script src="js/editors/stopEditor.js"></script>
+    <script src="js/editors/crossingEditor.js"></script>
+    <script src="js/editors/startEditor.js"></script>
+    <script src="js/editors/yieldEditor.js"></script>
+    <script src="js/editors/targetEditor.js"></script>
+    <script src="js/editors/LightEditor.js"></script>
+    <script src="js/editors/parkingEditor.js"></script>
+    <script src="js/viewport.js"></script>
+    <script src="js/marking/marking.js"></script>
+    <script src="js/marking/yield.js"></script>
+    <script src="js/marking/target.js"></script>
+    <script src="js/marking/Light.js"></script>
+    <script src="js/marking/parking.js"></script>
+    <script src="js/marking/stop.js"></script>
+    <script src="js/marking/crossing.js"></script>
+    <script src="js/marking/start.js"></script>
+    <script src="js/items/season.js"></script>
+    <script src="js/items/tree.js"></script>
+    <script src="js/items/building.js"></script>
+    <script src="js/math/graph.js"></script>
+    <script src="js/math/osm.js"></script>
+    <script src="js/math/utils.js"></script>
+    <script src="js/primitives/point.js"></script>
+    <script src="js/primitives/segment.js"></script>
+    <script src="js/primitives/polygon.js"></script>
+    <script src="js/primitives/envelope.js"></script>
+
+    <!-- <script src="saves/big.world"></script> -->
+    <!-- <script src="saves/big_target.world"></script> -->
+    <!-- <script src="saves/path_finding.world"></script> -->
+    <script>
+        // new Test().test1();
+        myCanvas.width = 800;
+        myCanvas.height = 600;
+        
+        const ctx = myCanvas.getContext("2d");
+
+        const selectedSeason = document.getElementById("season-select").value;
+        const currentSeason = Season.fromString(selectedSeason);
+
+        const worldString = localStorage.getItem("world");
+        const worldhInfo = worldString ? JSON.parse(worldString) : null;
+        let world = worldhInfo
+        ? World.load(worldhInfo)
+        : new World(new Graph(),currentSeason);
+
+        const graph = world.graph;
+        
+
+        // const world = new World(graph, currentSeason);
+
+        const viewport = new ViewPort(myCanvas,world.zoom,world.offset);
+        const tools={
+            graph:{button: graphBtn, editor: new GraphEditor(viewport, graph)},
+            stop:{button: stopBtn, editor: new StopEditor(viewport, world)},
+            crossing:{button: crossingBtn, editor: new CrossingEditor(viewport, world)},
+            start:{button: startBtn, editor: new StartEditor(viewport, world)},
+            parking:{button: parkingBtn, editor: new ParkingEditor(viewport, world)},
+            Light:{button: LightBtn, editor: new LightEditor(viewport, world)},
+            target:{button:targetBtn, editor: new TargetEditor(viewport, world)},
+            yield:{button: yieldBtn, editor: new YieldEditor(viewport, world)}
+        }
+
+        const posZero = new Point(0, 0);
+        //const polytest=new Polygon([new Point(10,10),new Point(200,10),new Point(200,100),new Point(10,100)]);
+
+        let oldGraphHas = graph.hash();
+        setMode("graph");
+        
+        animate();
+        // test();
+        function test(){
+            viewport.reset();
+            
+            // posZero.draw(ctx, { color: "yellow"});//debug
+
+            if (graph.hash() != oldGraphHas) {
+                world.generate();
+                oldGraphHas = graph.hash();
+            }
+            const viewPoint = scale(viewport.getOffset(), -1)
+            world.draw(ctx, viewPoint);
+            ctx.globalAlpha = 0.3;
+            for(const tool of Object.values(tools)){
+                if(!tools['view']){
+                    tool.editor.display();
+                }
+            }
+        
+            
+            ctx.restore();
+        }
+        function animate() {
+            viewport.reset();
+            
+            // posZero.draw(ctx, { color: "yellow"});//debug
+
+            if (graph.hash() != oldGraphHas) {
+                world.generate();
+                oldGraphHas = graph.hash();
+            }
+            const viewPoint = scale(viewport.getOffset(), -1)
+            world.draw(ctx, viewPoint);
+            ctx.globalAlpha = 0.3;
+            for(const tool of Object.values(tools)){
+                if(!tools['view']){
+                    tool.editor.display();
+                }
+            }
+        
+            
+            ctx.restore();
+            requestAnimationFrame(animate);
+        }
+
+        function dispose() {
+            tools["graph"].editor.dispose();
+            world.laneGuides.length=0;
+            world.markings.length=0;
+        }
+
+        function save() {
+            world.zoom=viewport.zoom;
+            world.offset=viewport.offset;
+
+            const element=document.createElement("a");
+            element.setAttribute(
+                "href",
+                "data:application/json;charset=utf-8,"+
+                encodeURIComponent("const world = World.load("
+                    +JSON.stringify(world)
+                    + ");")
+            );
+
+            const fileName="name.world";
+            element.setAttribute("download",fileName);
+            element.click();
+            localStorage.setItem("world", JSON.stringify(world));
+        }
+
+        function load(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                alert("No file Select");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.readAsText(file);
+
+            reader.onload = (evt) => {
+                const fileContent = evt.target.result;
+                const jsonString = fileContent.substring(
+                    fileContent.indexOf("(") +1,
+                    fileContent.lastIndexOf(")")
+                );
+                const jsonData = JSON.parse(jsonString);
+
+                world = World.load(jsonData); // ← world 再生成
+
+                const select = document.getElementById("season-select");
+                const name = world.season.name; // 例: "autumn"
+
+                // value 属性のある option を探して強制選択
+                const option = [...select.options].find(opt => opt.value === name);
+                if (option) {
+                    select.value = name;
+                    select.dispatchEvent(new Event("change")); // ← UI・状態も同期させる
+                } else {
+                    console.warn("不明な季節:", name);
+                }
+
+                localStorage.setItem("world", JSON.stringify(world));
+                //location.reload();
+                
+            };
+        }
+
+
+        function changeSeason() {
+            const selectedSeason = document.getElementById("season-select").value;
+            const currentSeason = Season.fromString(selectedSeason);
+            world.setSeason(currentSeason);
+            world.generate();
+        }
+
+        function diseableEditors() {
+            for (const tool of Object.values(tools)) {
+                tool.button.classList.remove("active"); // アクティブ状態を削除
+                tool.button.classList.add("disabled");  // フィルター適用用クラスを追加
+                tool.editor.disable();
+            }
+        }
+
+        function setMode(mode) { 
+            diseableEditors();  
+            tools[mode].button.classList.remove("disabled"); // フィルターを解除
+            tools[mode].button.classList.add("active"); // アクティブ用のクラスを適用
+            tools[mode].editor.enable();                   
+        }
+
+        function openOsmPanel(){
+            osmPanel.style.display = "block";
+        }
+
+        function closeOsmPanel(){
+            osmPanel.style.display = "none"
+        }
+
+        function parseOsmData(){
+            if(osmDataContainer.value == ""){
+                alert("Paste data first");
+                return;
+            }
+            const res = Osm.parseRoads(JSON.parse(osmDataContainer.value));
+            graph.points = res.points;
+            graph.segments = res.segments;
+            closeOsmPanel();
+        }
+
+    </script>
+</body>
+
+</html>
