@@ -61,7 +61,6 @@ function save(){
     localStorage.setItem("bestBrain",
         JSON.stringify(bestCar.brain)
     );
-    console.log(bestCar.brain.levels[1].output+"保存しました")
 }
 
 function discard(){
@@ -79,6 +78,8 @@ function generateCars(N){
     const startAngle = -angle(dir)+Math.PI/2;
 
     const cars=[];
+    console.log("carInfo:", carInfo);
+
     for(let i=1;i<=N;i++){
         const car = new Car(startPoint.x,startPoint.y,30,50,"AI",startAngle);
         car.load(carInfo);
@@ -88,6 +89,13 @@ function generateCars(N){
 }
 
 function animate(time){
+    const stopLines = world.markings
+        .filter(m => m instanceof Stop)
+        .map(stop => [stop.boorder.p1, stop.boorder.p2]); // ✅
+
+    const lights = world.markings
+        .filter(m => m instanceof Light);
+
     carCtx.clearRect(0,0, carCanvas.width, carCanvas.height);
     // networkCtx.setTransform(1, 0, 0, 1, 0, 0);        // 変換行列をリセット
     networkCtx.clearRect(0, 0, networkCanvas.width, networkCanvas.height);
@@ -97,7 +105,7 @@ function animate(time){
     }
 
     for(let i=0;i<cars.length;i++){
-        cars[i].update(roadBorders,traffic);
+        cars[i].update(roadBorders,traffic, stopLines, lights);
     }
     bestCar=cars.find(
         c=>c.fittness==Math.max(

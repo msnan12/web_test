@@ -10,7 +10,7 @@ class Sensor{
         this.readings=[];
     }
 
-    update(roadBorders,traffic){
+    update(roadBorders,traffic, markings = []) {
         this.#castRays();
         this.readings=[];
         for(let i=0;i<this.rays.length;i++){
@@ -18,56 +18,61 @@ class Sensor{
                 this.#getReading(
                     this.rays[i],
                     roadBorders,
-                    traffic
+                    traffic,
+                    markings
                 )
             );
         };
     }
 
-    #getReading(ray,roadBorders,traffic){
-        let touches=[];
+    #getReading(ray, roadBorders, traffic, markings = []) {
+        let touches = [];
 
-        for(let i=0;i<roadBorders.length;i++){
-            const touch=getIntersection(
-                ray[0],
-                ray[1],// 光線の始点・終点
-                roadBorders[i][0],
-                roadBorders[i][1]// 境界線の始点・終点
+        // 道路境界線との交差
+        for (let i = 0; i < roadBorders.length; i++) {
+            const touch = getIntersection(
+                ray[0], ray[1],
+                roadBorders[i][0], roadBorders[i][1]
             );
-            if(touch){
+            if (touch) {
                 touches.push(touch);
             }
         }
-        for(let i=0;i<traffic.length;i++){
-            const poly=traffic[i].polygon;
-            for(let j=0;j<poly.length;j++){
-                const value=getIntersection(
-                    ray[0],
-                    ray[1],// 光線の始点・終点
-                    poly[j],
-                    poly[(j+1)%poly.length]// 境界線の始点・終点
-                )
-            
-                if(value){
+
+        // 他の車との交差
+        for (let i = 0; i < traffic.length; i++) {
+            const poly = traffic[i].polygon;
+            for (let j = 0; j < poly.length; j++) {
+                const value = getIntersection(
+                    ray[0], ray[1],
+                    poly[j], poly[(j + 1) % poly.length]
+                );
+                if (value) {
                     touches.push(value);
                 }
             }
         }
-        if(touches.length==0){
+
+        // 停止線や信号などのマーカー線分との交差
+        for (let i = 0; i < markings.length; i++) {
+            const touch = getIntersection(
+                ray[0], ray[1],
+                markings[i][0], markings[i][1]
+            );
+            if (touch) {
+                touches.push(touch);
+            }
+        }
+
+        if (touches.length == 0) {
             return null;
-        }else{
-            /*このようなデータがあった場合2番目を選んで返す。
-            [
-                { offset: 10, x: 100, y: 200 },
-                { offset: 5, x: 120, y: 250 },※
-                { offset: 8, x: 140, y: 300 }
-            ]
-            */
-            const offsets=touches.map(e=>e.offset); // 交点の offset の値だけの配列を作る
-            const minOffset = Math.min(...offsets); // 最小の offset を取得
-            return touches.find(e => e.offset == minOffset); // 最も近い交点の { offset: 5, x: 120, y: 250 }を返す
+        } else {
+            const offsets = touches.map(e => e.offset);
+            const minOffset = Math.min(...offsets);
+            return touches.find(e => e.offset == minOffset);
         }
     }
+
 
     #castRays(){
         this.rays=[];

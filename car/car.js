@@ -27,6 +27,9 @@ class Car {
         // DUMMY以外の車はセンサーとニューラルネットワークを持つ
         if (controlType != "DUMMY") {
             this.sensor = new Sensor(this);
+            this.stopSensor = new Sensor(this);
+            this.lightSensor = new Sensor(this);
+            console.log(this.sensor.rayCount);
             this.brain = new NeuralNetwork(
                 [this.sensor.rayCount, 6, 4] // 入力・中間・出力のノード数
             );
@@ -55,6 +58,7 @@ class Car {
 
     load(info){
         this.brain = info.brain;
+        console.log("brain:"+this.brain.levels[0].biases[0]);
         this.maxSpeed = info.maxSpeed;
         this.friction = info.friction;
         this.acceleration = info.acceleration;
@@ -62,6 +66,20 @@ class Car {
         this.sensor.raySpread = info.sensor.raySpread;
         this.sensor.rayLength = info.sensor.rayLength;
         this.sensor.rayOffset = info.sensor.rayOffset;
+        this.stopSensor.rayCount = info.stopSensor.rayCount;
+        this.stopSensor.raySpread = info.stopSensor.raySpread;
+        this.stopSensor.rayLength = info.stopSensor.rayLength;
+        this.stopSensor.rayOffset = info.stopSensor.rayOffset;
+        this.lightSensor.rayCount = info.lightSensor.rayCount;
+        this.lightSensor.raySpread = info.lightSensor.raySpread;
+        this.lightSensor.rayLength = info.lightSensor.rayLength;
+        this.lightSensor.rayOffset = info.lightSensor.rayOffset;
+
+        // const totalInputs = this.sensor.rayCount + 1 + 1 + 1;
+        // this.brain = new NeuralNetwork(
+        //     [totalInputs, 6, 3, 4] // 入力・中間・出力のノード数
+        // );
+        console.log("brain:"+this.brain.levels[0].biases[0]);
     }
 
     getScore(road) {
@@ -75,44 +93,66 @@ class Car {
 
 
 
-    update(roadBorders, traffic) {
-        // 車が壊れていない場合のみ移動・衝突判定を行う
+    update(roadBorders, traffic, stopLines, lights) {
         if (!this.damaged) {
             this.#move();
             this.fittness += this.speed;
-            this.polygon = this.#createPolygon(); // 現在の形状を取得
-            this.damaged = this.#assessDamage(roadBorders, traffic); // 衝突判定
+            this.polygon = this.#createPolygon();
+            this.damaged = this.#assessDamage(roadBorders, traffic);
         }
 
-        // センサーが存在する場合（AIまたは手動）
         if (this.sensor) {
-            this.sensor.update(roadBorders, traffic); // センサーによる距離計測
+            this.sensor.update(roadBorders, traffic);
 
-            // センサー結果を0〜1の値に正規化（nullなら0）
-            const offsets = this.sensor.readings.map(
+            // 停止線センサー更新（すべての停止線に対して1本のレイ）
+            
+            this.stopSensor.update([], [], stopLines); // stopLines = [ [p1, p2], [p3, p4], ... ]
+
+            // 停止線センサーの入力
+            const stopReading = this.stopSensor.readings[0];
+            const stopLineInput = stopReading ? 1 - stopReading.offset : 0;
+
+            // 通常センサー入力
+            const sensorInputs = this.sensor.readings.map(
                 s => s == null ? 0 : 1 - s.offset
-            ).concat([this.speed/this.maxSpeed]);
+            );
 
-            // ニューラルネットワークで制御出力を得る
-            const outputs = NeuralNetwork.feedForward(offsets, this.brain);
-            // console.log(outputs);
+            // 信号入力（例：前方に赤信号があるか？）
+            let signalInput = 0;
+            let minDistance = Infinity;
 
-            // AI制御の場合、出力値で操作を設定
+            for (let light of lights) {
+                if (light.state === "red") {
+                    const dx = light.center.x - this.x;
+                    const dy = light.center.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < 200 && distance < minDistance) {
+                        minDistance = distance;
+                        signalInput = 1 - distance / 200;
+                    }
+                }
+            }
+
+
+            // 最終的なNN入力
+            const inputs = [
+                ...sensorInputs,
+                this.speed / this.maxSpeed,
+                stopLineInput,
+                signalInput
+            ];
+
+            const outputs = NeuralNetwork.feedForward(inputs, this.brain);
+
             if (this.useBrain) {
                 this.controls.forward = outputs[0];
                 this.controls.left = outputs[1];
                 this.controls.right = outputs[2];
                 this.controls.reverse = outputs[3];
             }
-            // if (this.useBrain) {
-            //     this.controls.forward = outputs[0] > 0.3;
-            //     this.controls.left = outputs[1] > 0.3;
-            //     this.controls.right = outputs[2] > 0.3;
-            //     this.controls.reverse = outputs[3] > 0.3;
-            // }
-
         }
     }
+
 
     // 衝突しているかどうかを判定
     #assessDamage(roadBorders, traffic) {
@@ -225,7 +265,7 @@ class Car {
 
         // センサーの可視化
         if (this.sensor && drowSensor) {
-            // this.sensor.drow(ctx);
+            this.sensor.drow(ctx);
         }
         ctx.save();
         ctx.translate(this.x,this.y);
