@@ -1,0 +1,13 @@
+日本の左通行にする場合
+
+停止線の向きを変える
+stop.js　 
+this.boorder=this.poly.segments[2];//日本の場合はここ変更0に
+
+信号の検知位置を変える
+trafficLight.js
+this.boorder=this.poly.segments[0];//日本の場合はここ変更2に
+
+車の向きを変える
+start.js　　
+ctx.rotate(angle(this.directionVector)-Math.PI/2);//日本の場合は-PIを＋PIにする
